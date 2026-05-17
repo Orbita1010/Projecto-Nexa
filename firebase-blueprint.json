@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["ENTREPRENEUR", "INVESTOR", "SPECIALIST", "ADMIN"] },
+        "avatar": { "type": "string" },
+        "bio": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Business idea or startup submitted by an entrepreneur",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "entrepreneurId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "problem": { "type": "string" },
+        "solution": { "type": "string" },
+        "targetAudience": { "type": "string" },
+        "competitiveAdvantage": { "type": "string" },
+        "revenueModel": { "type": "string" },
+        "stage": { "type": "string" },
+        "fundingNeeded": { "type": "number" },
+        "location": { "type": "string" },
+        "status": { "type": "string", "enum": ["DRAFT", "SUBMITTED", "ANALYZING", "NEEDS_ADJUSTMENTS", "APPROVED", "MATCHED", "FUNDED"] },
+        "investmentScore": { "type": "number" },
+        "aiAnalysis": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["entrepreneurId", "title", "status"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "Connection between an investor and a project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "investorId": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "INTERESTED", "REJECTED", "MEETING_SCHEDULED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "investorId", "status"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "attachments": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["conversationId", "senderId", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "projects/{projectId}": {
+      "schema": "Project",
+      "description": "Startup projects"
+    },
+    "matches/{matchId}": {
+      "schema": "Match",
+      "description": "Investor matches"
+    },
+    "conversations/{conversationId}": {
+      "schema": "object",
+      "description": "Chat conversations"
+    },
+    "conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a conversation"
+    }
+  }
+}

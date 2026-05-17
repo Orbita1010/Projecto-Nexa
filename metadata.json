@@ -1,0 +1,12 @@
+{
+  "name": "NEXA",
+  "description": "Plataforma SaaS premium que conecta empreendedores angolanos a investimento real através de curadoria técnica e IA.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
