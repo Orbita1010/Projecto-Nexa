@@ -10,14 +10,60 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { dbService } from '../lib/dbService';
+import { Loader2, AlertCircle } from 'lucide-react';
+
 export const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'ENTREPRENEUR' | 'INVESTOR'>('ENTREPRENEUR');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const navigate = useNavigate();
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple mock auth
-    navigate('/dashboard');
+    setLoading(true);
+    setError(null);
+    
+    try {
+      if (isLogin) {
+        // Real Login
+        const user = await dbService.login(email);
+        if (user.role === 'INVESTOR') {
+          navigate('/investors');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        // Real Register
+        const uid = 'user_' + Math.random().toString(36).substr(2, 9);
+        const avatarSeed = name.toLowerCase().replace(/\s+/g, '-');
+        const user = await dbService.register({
+          uid,
+          name,
+          email,
+          role,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`,
+          bio: role === 'ENTREPRENEUR' 
+            ? 'Empreendedor à procura de capital e mentoria.' 
+            : 'Investidor interessado em projetos inovadores em Angola.'
+        });
+        
+        if (user.role === 'INVESTOR') {
+          navigate('/investors');
+        } else {
+          navigate('/dashboard');
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Ocorreu um erro no processo de autenticação.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,27 +87,67 @@ export const AuthPage = () => {
             </p>
           </div>
 
+          {error && (
+            <div className="bg-red-50 text-red-700 p-4 rounded-xl flex gap-3 text-sm font-medium border border-red-100">
+              <AlertCircle className="flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-4">
+              {!isLogin && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-600 uppercase tracking-wider">Nome Completo</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Nelson Camisassa"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full bg-nexa-ghost border-none rounded-xl py-3.5 px-4 focus:ring-2 focus:ring-nexa-teal transition-all text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-600 uppercase tracking-wider">Perfil</label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as any)}
+                      className="w-full bg-nexa-ghost border-none rounded-xl py-3.5 px-4 focus:ring-2 focus:ring-nexa-teal transition-all text-sm"
+                    >
+                      <option value="ENTREPRENEUR">Empreendedor (Tenho um projeto)</option>
+                      <option value="INVESTOR">Investidor (Procuro startups)</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-600 uppercase tracking-wider">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input 
                     type="email" 
+                    required
                     placeholder="exemplo@nexa.ao"
-                    className="w-full bg-nexa-ghost border-none rounded-xl py-3.5 pl-12 pr-4 focus:ring-2 focus:ring-nexa-teal transition-all"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-nexa-ghost border-none rounded-xl py-3.5 pl-12 pr-4 focus:ring-2 focus:ring-nexa-teal transition-all text-sm"
                   />
                 </div>
               </div>
+              
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-600 uppercase tracking-wider">Palavra-passe</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input 
                     type="password" 
+                    required
                     placeholder="••••••••"
-                    className="w-full bg-nexa-ghost border-none rounded-xl py-3.5 pl-12 pr-4 focus:ring-2 focus:ring-nexa-teal transition-all"
+                    className="w-full bg-nexa-ghost border-none rounded-xl py-3.5 pl-12 pr-4 focus:ring-2 focus:ring-nexa-teal transition-all text-sm"
                   />
                 </div>
               </div>
@@ -73,8 +159,14 @@ export const AuthPage = () => {
               </div>
             )}
 
-            <Button type="submit" className="w-full h-14 text-lg gap-2">
-               {isLogin ? "Entrar na Plataforma" : "Criar Conta Pro"}
+            <Button type="submit" className="w-full h-14 text-lg gap-2" disabled={loading}>
+               {loading ? (
+                 <>
+                   <Loader2 className="animate-spin" size={18} /> A carregar...
+                 </>
+               ) : (
+                 isLogin ? "Entrar na Plataforma" : "Criar Conta Pro"
+               )}
             </Button>
           </form>
 

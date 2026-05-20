@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { 
@@ -14,7 +14,8 @@ import {
   ChevronRight, 
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -25,8 +26,12 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { dbService, Project } from '../lib/dbService';
+import { cn } from '../lib/utils';
 
-const data = [
+// Chart helper data
+const chartData = [
   { name: 'Jan', score: 45 },
   { name: 'Fev', score: 52 },
   { name: 'Mar', score: 48 },
@@ -36,21 +41,81 @@ const data = [
 ];
 
 export const EntrepreneurDashboard = () => {
-  const [projects] = useState([
-    { id: 1, title: 'Kandengue Pay', status: 'APPROVED', score: 88, category: 'Fintech', date: '12 Out 2025' },
-    { id: 2, title: 'AgroConnect Angola', status: 'ANALYZING', score: null, category: 'Agrotech', date: '15 Out 2025' },
-    { id: 3, title: 'Solar Kwanza', status: 'NEEDS_ADJUSTMENTS', score: 45, category: 'Energy', date: '18 Out 2025' },
-  ]);
+  const navigate = useNavigate();
+  const [user, setUser] = useState(dbService.getCurrentUser());
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [investorCount, setInvestorCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Garantir sessão local de teste ativa se nenhuma existir
+    let currentUser = dbService.getCurrentUser();
+    if (!currentUser) {
+      currentUser = {
+        uid: "nelson",
+        name: "Nelson Camisassa",
+        email: "nelson@nexa.ao",
+        role: "ENTREPRENEUR",
+        avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=nelson",
+        bio: "Empreendedor em Luanda focado em soluções de pagamento inovadoras e inclusão financeira.",
+        createdAt: new Date().toISOString()
+      };
+      dbService.setCurrentUser(currentUser);
+      setUser(currentUser);
+    }
+
+    const loadDashboardData = async () => {
+      try {
+        if (currentUser) {
+          const userProjects = await dbService.getUserProjects(currentUser.uid);
+          setProjects(userProjects);
+
+          // Buscar quantidade de investidores interessados
+          const matches = await dbService.getMatches();
+          const userProjIds = userProjects.map(p => p.id);
+          const interestedMatches = matches.filter(
+            m => userProjIds.includes(m.projectId) && m.status === 'INTERESTED'
+          );
+          setInvestorCount(interestedMatches.length);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados do dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, []);
+
+  const getFirstName = (fullName: string) => {
+    return fullName.split(' ')[0];
+  };
+
+  // Cálculos dinâmicos de métricas
+  const activeProjectsCount = projects.length;
+  const projectsWithScore = projects.filter(p => p.investmentScore !== undefined && p.investmentScore !== null);
+  const averageScore = projectsWithScore.length > 0
+    ? (projectsWithScore.reduce((sum, p) => sum + (p.investmentScore || 0), 0) / projectsWithScore.length).toFixed(1)
+    : "0.0";
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="animate-spin text-nexa-teal" size={40} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold">Olá, Nelson 👋</h1>
+          <h1 className="text-3xl font-display font-bold">Olá, {user ? getFirstName(user.name) : ' Nelson'} 👋</h1>
           <p className="text-gray-500">Seja bem-vindo de volta ao seu painel NEXA.</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => navigate('/dashboard/submit')}>
           <Plus size={20} /> Novo Projeto
         </Button>
       </div>
@@ -62,7 +127,7 @@ export const EntrepreneurDashboard = () => {
             <TrendingUp size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold">85.4</div>
+            <div className="text-2xl font-bold">{averageScore}</div>
             <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Média de Score</div>
           </div>
         </Card>
@@ -72,7 +137,7 @@ export const EntrepreneurDashboard = () => {
             <Users size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{investorCount}</div>
             <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Investidores Interessados</div>
           </div>
         </Card>
@@ -82,7 +147,7 @@ export const EntrepreneurDashboard = () => {
             <Zap size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold">3</div>
+            <div className="text-2xl font-bold">{activeProjectsCount}</div>
             <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Projetos Ativos</div>
           </div>
         </Card>
@@ -100,7 +165,7 @@ export const EntrepreneurDashboard = () => {
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.1}/>
@@ -123,25 +188,27 @@ export const EntrepreneurDashboard = () => {
         <Card className="space-y-6">
           <h3 className="font-bold text-lg">Actividade Recente</h3>
           <div className="space-y-6">
-            {[
-              { type: 'interest', user: 'Bruno Santos', project: 'Kandengue Pay', time: 'Há 2 horas' },
-              { type: 'status', message: 'Relatório IA Gerado', project: 'AgroConnect', time: 'Há 5 horas' },
-              { type: 'mentor', message: 'Sessão marcada com Mentor', company: 'Y Combinator', time: 'Há 1 dia' },
-            ].map((activity, i) => (
-              <div key={i} className="flex gap-4">
-                <div className="w-10 h-10 bg-gray-50 rounded-full flex-shrink-0 animate-pulse"></div>
-                <div className="space-y-1">
-                  <div className="text-sm font-medium text-nexa-dark">
-                    {activity.type === 'interest' ? (
-                      <><span className="font-bold">{activity.user}</span> demonstrou interesse em <span className="font-bold">{activity.project}</span></>
-                    ) : activity.message}
+            {projects.length > 0 ? (
+              projects.slice(0, 3).map((project, i) => (
+                <div key={project.id} className="flex gap-4">
+                  <div className="w-10 h-10 bg-teal-50 text-nexa-teal rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm">
+                    {project.title.substring(0, 2).toUpperCase()}
                   </div>
-                  <div className="text-xs text-gray-400 font-medium">{activity.time}</div>
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-nexa-dark">
+                      Análise de IA concluída para <span className="font-bold">{project.title}</span> com score <span className="font-bold">{project.investmentScore}</span>.
+                    </div>
+                    <div className="text-xs text-gray-400 font-medium">
+                      {project.createdAt ? new Date(project.createdAt).toLocaleDateString('pt-AO') : 'Recentemente'}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="text-gray-400 text-sm text-center py-10 italic">Nenhuma atividade recente.</div>
+            )}
           </div>
-          <Button variant="ghost" size="sm" className="w-full text-nexa-teal">Ver todas</Button>
+          <Button variant="ghost" size="sm" className="w-full text-nexa-teal" onClick={() => navigate('/dashboard/projects')}>Ver todas</Button>
         </Card>
       </div>
 
@@ -149,7 +216,7 @@ export const EntrepreneurDashboard = () => {
       <Card className="space-y-6 overflow-hidden">
         <div className="flex items-center justify-between px-2">
           <h3 className="font-bold text-lg">Meus Projetos</h3>
-          <Button variant="ghost" size="sm">Ver todos</Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/projects')}>Ver todos</Button>
         </div>
         
         <div className="overflow-x-auto">
@@ -164,45 +231,55 @@ export const EntrepreneurDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {projects.map((project) => (
-                <tr key={project.id} className="group hover:bg-nexa-ghost/50 transition-all">
-                  <td className="py-5 px-4">
-                    <div className="font-bold text-nexa-dark">{project.title}</div>
-                    <div className="text-xs text-gray-400">{project.date}</div>
-                  </td>
-                  <td className="py-5 px-4 text-sm font-medium text-gray-600">{project.category}</td>
-                  <td className="py-5 px-4">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-inset",
-                      project.status === 'APPROVED' ? "bg-green-50 text-green-700 ring-green-600/20" :
-                      project.status === 'ANALYZING' ? "bg-amber-50 text-amber-700 ring-amber-600/20" :
-                      "bg-slate-50 text-slate-700 ring-slate-600/20"
-                    )}>
-                      {project.status === 'APPROVED' ? <CheckCircle2 size={12} /> : 
-                       project.status === 'ANALYZING' ? <Clock size={12} /> : 
-                       <AlertCircle size={12} />}
-                      {project.status}
-                    </span>
-                  </td>
-                  <td className="py-5 px-4">
-                    {project.score ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                           <div className="h-full bg-nexa-teal" style={{ width: `${project.score}%` }}></div>
-                        </div>
-                        <span className="text-sm font-bold text-nexa-teal">{project.score}</span>
+              {projects.length > 0 ? (
+                projects.map((project) => (
+                  <tr key={project.id} className="group hover:bg-nexa-ghost/50 transition-all">
+                    <td className="py-5 px-4">
+                      <div className="font-bold text-nexa-dark">{project.title}</div>
+                      <div className="text-xs text-gray-400">
+                        {project.createdAt ? new Date(project.createdAt).toLocaleDateString('pt-AO', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
                       </div>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic">Pendente</span>
-                    )}
-                  </td>
-                  <td className="py-5 px-4">
-                    <Button variant="ghost" size="sm" className="p-2">
-                      <ChevronRight size={20} className="text-gray-400 group-hover:text-nexa-teal" />
-                    </Button>
+                    </td>
+                    <td className="py-5 px-4 text-sm font-medium text-gray-600">{project.category}</td>
+                    <td className="py-5 px-4">
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-inset",
+                        project.status === 'APPROVED' ? "bg-green-50 text-green-700 ring-green-600/20" :
+                        project.status === 'ANALYZING' ? "bg-amber-50 text-amber-700 ring-amber-600/20" :
+                        "bg-slate-50 text-slate-700 ring-slate-600/20"
+                      )}>
+                        {project.status === 'APPROVED' ? <CheckCircle2 size={12} /> : 
+                         project.status === 'ANALYZING' ? <Clock size={12} /> : 
+                         <AlertCircle size={12} />}
+                        {project.status}
+                      </span>
+                    </td>
+                    <td className="py-5 px-4">
+                      {project.investmentScore ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-10 bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                             <div className="h-full bg-nexa-teal" style={{ width: `${project.investmentScore}%` }}></div>
+                          </div>
+                          <span className="text-sm font-bold text-nexa-teal">{project.investmentScore}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">Pendente</span>
+                      )}
+                    </td>
+                    <td className="py-5 px-4">
+                      <Button variant="ghost" size="sm" className="p-2" onClick={() => navigate('/dashboard/projects')}>
+                        <ChevronRight size={20} className="text-gray-400 group-hover:text-nexa-teal" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-gray-400 italic">
+                    Nenhum projeto registado ainda. Comece por submeter a sua primeira ideia!
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

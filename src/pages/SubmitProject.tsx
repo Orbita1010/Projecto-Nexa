@@ -8,8 +8,11 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Rocket, Send, Loader2, CheckCircle2, AlertCircle, TrendingUp, ShieldAlert, Target } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
+import { dbService } from '../lib/dbService';
 
 export const SubmitProject = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -36,12 +39,33 @@ export const SubmitProject = () => {
         body: JSON.stringify({ project: formData })
       });
       
+      if (!response.ok) {
+        throw new Error("Erro ao validar ideia com IA");
+      }
+      
       const data = await response.json();
       setAnalysis(data);
-      setSuccess(true);
       
-      // 2. Here we would also save to Firebase (if ready)
-      // For now we just show the analysis
+      // 2. Salvar na base de dados
+      const currentUser = dbService.getCurrentUser();
+      const entrepreneurId = currentUser?.uid || "nelson";
+      
+      await dbService.createProject({
+        entrepreneurId,
+        title: formData.title,
+        category: formData.category,
+        problem: formData.problem,
+        solution: formData.solution,
+        targetAudience: formData.targetAudience,
+        revenueModel: formData.revenueModel,
+        fundingNeeded: formData.fundingNeeded,
+        location: formData.location,
+        status: "APPROVED",
+        investmentScore: data.investmentScore || 75,
+        aiAnalysis: data
+      });
+
+      setSuccess(true);
     } catch (error) {
       console.error(error);
       alert("Erro ao processar submissão.");
@@ -116,7 +140,7 @@ export const SubmitProject = () => {
 
         <div className="flex justify-center gap-4">
            <Button size="lg" variant="outline" onClick={() => setSuccess(false)}>Submeter Outra Ideia</Button>
-           <Button size="lg">Ir para Meus Projetos</Button>
+           <Button size="lg" onClick={() => navigate('/dashboard')}>Ir para Meus Projetos</Button>
         </div>
       </div>
     );

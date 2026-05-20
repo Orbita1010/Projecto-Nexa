@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   LayoutDashboard, 
@@ -18,8 +18,9 @@ import {
   Bell,
   Search
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { dbService, User } from '../lib/dbService';
 
 interface SidebarItemProps {
   icon: any;
@@ -45,16 +46,36 @@ const SidebarItem = ({ icon: Icon, label, href, active }: SidebarItemProps) => (
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(dbService.getCurrentUser());
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-    { icon: Briefcase, label: "Meus Projetos", href: "/dashboard/projects" },
-    { icon: Send, label: "Submeter Ideia", href: "/dashboard/submit" },
-    { icon: FileText, label: "Plano de Negócio", href: "/dashboard/business-plan" },
-    { icon: Users, label: "Mentoria", href: "/dashboard/mentorship" },
-    { icon: MessageCircle, label: "Mensagens", href: "/dashboard/messages" },
-    { icon: Calendar, label: "Calendário", href: "/dashboard/calendar" },
-  ];
+  useEffect(() => {
+    // Escuta mudanças de sessão para atualizar a UI
+    const currentUser = dbService.getCurrentUser();
+    setUser(currentUser);
+  }, [location.pathname]);
+
+  const handleLogout = () => {
+    dbService.logout();
+    navigate('/login');
+  };
+
+  const isInvestor = user?.role === 'INVESTOR';
+
+  const menuItems = isInvestor 
+    ? [
+        { icon: LayoutDashboard, label: "Explorar Startups", href: "/investors" },
+        { icon: MessageCircle, label: "Mensagens", href: "/dashboard/messages" },
+      ]
+    : [
+        { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+        { icon: Briefcase, label: "Meus Projetos", href: "/dashboard/projects" },
+        { icon: Send, label: "Submeter Ideia", href: "/dashboard/submit" },
+        { icon: FileText, label: "Plano de Negócio", href: "/dashboard/business-plan" },
+        { icon: Users, label: "Mentoria", href: "/dashboard/mentorship" },
+        { icon: MessageCircle, label: "Mensagens", href: "/dashboard/messages" },
+        { icon: Calendar, label: "Calendário", href: "/dashboard/calendar" },
+      ];
 
   return (
     <div className="flex min-h-screen bg-nexa-ghost">
@@ -70,8 +91,10 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
         </div>
 
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-          <div className="text-xs font-bold text-gray-400 px-4 py-2 uppercase tracking-widest">Geral</div>
-          {menuItems.slice(0, 3).map((item) => (
+          <div className="text-xs font-bold text-gray-400 px-4 py-2 uppercase tracking-widest">
+            {isInvestor ? "Investidor" : "Geral"}
+          </div>
+          {(isInvestor ? menuItems : menuItems.slice(0, 3)).map((item) => (
             <SidebarItem 
               key={item.href} 
               {...item} 
@@ -79,21 +102,28 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             />
           ))}
           
-          <div className="text-xs font-bold text-gray-400 px-4 py-2 mt-6 uppercase tracking-widest">Ferramentas</div>
-          {menuItems.slice(3).map((item) => (
-            <SidebarItem 
-              key={item.href} 
-              {...item} 
-              active={location.pathname === item.href} 
-            />
-          ))}
+          {!isInvestor && (
+            <>
+              <div className="text-xs font-bold text-gray-400 px-4 py-2 mt-6 uppercase tracking-widest">Ferramentas</div>
+              {menuItems.slice(3).map((item) => (
+                <SidebarItem 
+                  key={item.href} 
+                  {...item} 
+                  active={location.pathname === item.href} 
+                />
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="p-4 border-t border-gray-50 space-y-2">
           <SidebarItem icon={Settings} label="Configurações" href="/dashboard/settings" active={location.pathname === "/dashboard/settings"} />
-          <button className="flex items-center gap-3 px-4 py-3 rounded-xl w-full text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl w-full text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all font-medium"
+          >
             <LogOut size={20} />
-            <span className="font-medium">Terminar Sessão</span>
+            <span>Terminar Sessão</span>
           </button>
         </div>
       </aside>
@@ -119,11 +149,13 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             
             <div className="flex items-center gap-3 pl-6 border-l border-gray-100">
               <div className="text-right hidden sm:block">
-                <div className="text-sm font-bold text-nexa-dark">Nelson Camisassa</div>
-                <div className="text-xs font-medium text-nexa-teal">Empreendedor Pro</div>
+                <div className="text-sm font-bold text-nexa-dark">{user?.name || "Nelson Camisassa"}</div>
+                <div className="text-xs font-medium text-nexa-teal">
+                  {isInvestor ? "Investidor Anjo" : "Empreendedor Pro"}
+                </div>
               </div>
-              <div className="w-10 h-10 bg-nexa-amber rounded-full border-2 border-white shadow-sm overflow-hidden">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=nelson" alt="User Avatar" />
+              <div className="w-10 h-10 bg-nexa-amber rounded-full border-2 border-white shadow-sm overflow-hidden flex items-center justify-center font-bold text-xs">
+                <img src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=nelson"} alt="User Avatar" />
               </div>
             </div>
           </div>
